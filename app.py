@@ -16,7 +16,6 @@ def query_sensor_data_for_streamlit(measurement, field, range_minutes=60, limit=
     Consulta datos de series temporales desde InfluxDB para un measurement y field específico.
     Devuelve un DataFrame de Pandas.
     """
-    # Validaciones básicas de entrada
     if not all([INFLUX_URL, INFLUX_TOKEN, ORG, BUCKET]):
         st.error("Las credenciales de InfluxDB no están completamente configuradas.")
         return pd.DataFrame()
@@ -26,9 +25,6 @@ def query_sensor_data_for_streamlit(measurement, field, range_minutes=60, limit=
 
     client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=ORG)
     query_api = client.query_api()
-
-    # Query Flux ajustada para usar los nombres de campo y medición correctos
-    # Tomados del PDF del proyecto integrador para el Anexo Técnico [cite: 37]
     query = f'''
     from(bucket: "{BUCKET}")
       |> range(start: -{range_minutes}m)
@@ -41,7 +37,6 @@ def query_sensor_data_for_streamlit(measurement, field, range_minutes=60, limit=
         if isinstance(result, list):
             result = pd.concat(result) if result else pd.DataFrame() # type: ignore
         if not result.empty:
-            # Seleccionar y renombrar columnas relevantes
             if "_time" in result.columns and "_value" in result.columns:
                 return result[["_time", "_value"]].rename(columns={"_time": "Timestamp", "_value": field})
             else:
@@ -63,9 +58,8 @@ def calculate_stats(df, column_name):
             "Promedio": round(df[column_name].mean(), 2),
         }
         if len(df[column_name]) > 1:
-            stats["Última Lectura"] = round(df[column_name].iloc[0], 2) # Asumiendo datos ordenados desc por tiempo
+            stats["Última Lectura"] = round(df[column_name].iloc[0], 2)
             stats["Lectura Anterior"] = round(df[column_name].iloc[1], 2)
-            # Tendencia simple
             if stats["Última Lectura"] > stats["Lectura Anterior"]:
                 stats["Tendencia"] = "Subiendo ⬆️"
             elif stats["Última Lectura"] < stats["Lectura Anterior"]:
@@ -91,26 +85,20 @@ st.info(f"ℹ️ Mostrando datos del bucket: `{BUCKET}` en la organización: `{O
 st.header("📊 Paneles Detallados en Grafana")
 st.markdown("Haz clic en los siguientes enlaces para ver las visualizaciones detalladas en una nueva pestaña directamente en Grafana.")
 
-# URLs de tus paneles de Grafana (MODIFICAR ESTAS URLS)
-# Debes obtener la URL "Share" > "Embed" (solo la URL del src) o "Share" > "Link" (modo d-solo) para CADA panel.
-# La estructura es: https://TU_USUARIO.grafana.net/d-solo/ID_DEL_DASHBOARD/NOMBRE_DASHBOARD?orgId=1&panelId=ID_DEL_PANEL_ESPECIFICO&refresh=10s&theme=light
-# (Los parámetros from y to son opcionales si quieres que Grafana maneje el tiempo por defecto del panel)
-
 grafana_urls = {
-    "Temperatura (DHT22)": "URL_GRAFANA_PANEL_TEMPERATURA_LINEA", # ¡TU URL AQUÍ!
-    "Índice de Calor (DHT22)": "URL_GRAFANA_PANEL_INDICE_CALOR_LINEA", # ¡TU URL AQUÍ!
-    "Humedad (DHT22)": "URL_GRAFANA_PANEL_HUMEDAD_LINEA", # ¡TU URL AQUÍ!
-    "Niveles de Temperatura (General)": "URL_GRAFANA_PANEL_TEMPERATURA_NIVELES_LINEA", # ¡TU URL AQUÍ!
-    "Mapa de Calor de Humedad": "URL_GRAFANA_PANEL_HUMEDAD_HEATMAP", # ¡TU URL AQUÍ!
-    "Mapa de Calor de Temperatura": "URL_GRAFANA_PANEL_TEMPERATURA_HEATMAP", # ¡TU URL AQUÍ!
-    "Intensidad de Luz UV (VEML6070)": "URL_GRAFANA_PANEL_UV_LINEA" # ¡TU URL AQUÍ!
+    "Humidity vs Temperature": "https://santianchez05.grafana.net/d-solo/09ff8bd6-e9d7-4852-9bc7-c7ae01600f54/humidity-vs-temperature?orgId=1&from=1747325219746&to=1747368419746&timezone=browser&panelId=1&__feature.dashboardSceneSolo=true",
+    "Heat Index": "https://santianchez05.grafana.net/d-solo/09ff8bd6-e9d7-4852-9bc7-c7ae01600f54/humidity-vs-temperature?orgId=1&from=1747325219746&to=1747368419746&timezone=browser&panelId=3&__feature.dashboardSceneSolo=true",
+    "Humidity levels": "https://santianchez05.grafana.net/d-solo/09ff8bd6-e9d7-4852-9bc7-c7ae01600f54/humidity-vs-temperature?orgId=1&from=1747325219746&to=1747368419746&timezone=browser&panelId=4&__feature.dashboardSceneSolo=true",
+    "Temperature levels": "https://santianchez05.grafana.net/d-solo/09ff8bd6-e9d7-4852-9bc7-c7ae01600f54/humidity-vs-temperature?orgId=1&from=1747325219746&to=1747368419746&timezone=browser&panelId=5&__feature.dashboardSceneSolo=true",
+    "Humidity Heatmap": "https://santianchez05.grafana.net/d-solo/09ff8bd6-e9d7-4852-9bc7-c7ae01600f54/humidity-vs-temperature?orgId=1&from=1747325219746&to=1747368419746&timezone=browser&panelId=6&__feature.dashboardSceneSolo=true",
+    "Temperature Heatmap": "https://santianchez05.grafana.net/d-solo/09ff8bd6-e9d7-4852-9bc7-c7ae01600f54/humidity-vs-temperature?orgId=1&from=1747325219746&to=1747368419746&timezone=browser&panelId=7&__feature.dashboardSceneSolo=true",
+    "UV Light Intensity": "https://santianchez05.grafana.net/d-solo/09ff8bd6-e9d7-4852-9bc7-c7ae01600f54/humidity-vs-temperature?orgId=1&from=1747325219746&to=1747368419746&timezone=browser&panelId=2&__feature.dashboardSceneSolo=true"
 }
 
-# Mostrar los enlaces
 for panel_name, panel_url in grafana_urls.items():
-    if panel_url == f"URL_GRAFANA_PANEL_{panel_name.upper().replace(' (DHT22)', '').replace(' (VEML6070)', '').replace(' ', '_')}" or not panel_url.startswith("http"):
-        st.warning(f"⚠️ URL para '{panel_name}' no configurada. Por favor, actualiza la URL en el código de `app.py`.")
-        st.markdown(f"### {panel_name}\n*URL no configurada*")
+    if not panel_url.startswith("http"): # Simple check if URL is placeholder
+        st.warning(f"⚠️ URL para '{panel_name}' parece no estar configurada correctamente. Por favor, verifica la URL en el código de `app.py`.")
+        st.markdown(f"### {panel_name}\n*URL no configurada o incorrecta*")
     else:
         st.markdown(
             f"""
@@ -130,23 +118,18 @@ range_minutes_data = st.select_slider(
     value=60
 )
 
-# Nombres de measurement y field según el Anexo Técnico del PDF del proyecto [cite: 37]
-# y tus visualizaciones de Grafana [cite: 1, 2]
 temp_measurement, temp_field = "airSensor", "temperature"
 hum_measurement, hum_field = "airSensor", "humidity"
-uv_measurement, uv_field = "uv_sensor", "uv_index" # Asumiendo 'uv_index' para el valor procesado. Si usas 'uv_raw', ajústalo. [cite: 2]
+uv_measurement, uv_field = "uv_sensor", "uv_index" # Asumiendo 'uv_index' para el valor procesado. Si usas 'uv_raw', ajústalo.
 
-# Consultar datos
 temp_df = query_sensor_data_for_streamlit(temp_measurement, temp_field, range_minutes_data)
 hum_df = query_sensor_data_for_streamlit(hum_measurement, hum_field, range_minutes_data)
 uv_df = query_sensor_data_for_streamlit(uv_measurement, uv_field, range_minutes_data)
 
-# Calcular estadísticas
 stats_temp = calculate_stats(temp_df, temp_field)
 stats_hum = calculate_stats(hum_df, hum_field)
 stats_uv = calculate_stats(uv_df, uv_field)
 
-# Mostrar en columnas
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -184,33 +167,32 @@ st.markdown("---")
 st.header("💡 Recomendaciones para tus Microcultivos")
 
 recommendations = []
-# Usar las últimas lecturas de las estadísticas calculadas
 last_temp = stats_temp.get("Última Lectura") if stats_temp else None
 last_hum = stats_hum.get("Última Lectura") if stats_hum else None
 last_uv = stats_uv.get("Última Lectura") if stats_uv else None
 
-# Lógica de recomendaciones (ajusta estos umbrales según sea necesario para microcultivos específicos)
 if last_hum is not None:
-    if last_hum < 35: # Ejemplo de umbral para microcultivos
-        recommendations.append("💧 **Humedad Baja:** La humedad ambiental es inferior al 35%. Considera aumentar la humedad, por ejemplo, pulverizando agua cerca o agrupando plantas.")
-    elif last_hum > 75: # Ejemplo de umbral
-        recommendations.append("💧 **Humedad Alta:** La humedad ambiental es superior al 75%. Asegura una buena ventilación para prevenir moho.")
+    if last_hum < 35:
+        recommendations.append("💧 **Humedad Baja:** La humedad ambiental es inferior al 35%. Considera aumentar la humedad.")
+    elif last_hum > 75:
+        recommendations.append("💧 **Humedad Alta:** La humedad ambiental es superior al 75%. Asegura una buena ventilación.")
 else:
     recommendations.append("❓ Humedad: No hay datos recientes para generar recomendaciones.")
 
 if last_temp is not None:
-    if last_temp > 28: # Ejemplo de umbral
-        recommendations.append("🌡️ **Temperatura Alta:** La temperatura supera los 28°C. Si es posible, provee sombra o mejora la ventilación.")
-    elif last_temp < 15: # Ejemplo de umbral
-        recommendations.append("🌡️ **Temperatura Baja:** La temperatura es inferior a 15°C. Protege los cultivos del frío si son sensibles.")
+    if last_temp > 28:
+        recommendations.append("🌡️ **Temperatura Alta:** La temperatura supera los 28°C. Considera proveer sombra o mejorar la ventilación.")
+    elif last_temp < 15:
+        recommendations.append("🌡️ **Temperatura Baja:** La temperatura es inferior a 15°C. Protege los cultivos del frío.")
 else:
     recommendations.append("❓ Temperatura: No hay datos recientes para generar recomendaciones.")
 
 if last_uv is not None:
-    if last_uv > 7: # Ejemplo de índice UV (escala de 0-11+)
-        recommendations.append("☀️ **Radiación UV Alta:** El índice UV es superior a 7. Considera proveer sombra parcial, especialmente durante las horas pico de sol.")
+    # La escala del índice UV va de 0 a 11+. Umbrales de ejemplo.
+    if last_uv > 7:
+        recommendations.append("☀️ **Radiación UV Alta (Índice > 7):** Considera proveer sombra parcial.")
     elif last_uv < 2:
-        recommendations.append("☀️ **Radiación UV Baja:** El índice UV es inferior a 2. Asegúrate de que los cultivos reciban suficiente luz indirecta o considera suplementos lumínicos si es necesario para su etapa de crecimiento.")
+        recommendations.append("☀️ **Radiación UV Baja (Índice < 2):** Asegura suficiente exposición a la luz indirecta.")
 else:
     recommendations.append("❓ Índice UV: No hay datos recientes para generar recomendaciones.")
 
@@ -226,4 +208,4 @@ else:
 # --- PIE DE PÁGINA ---
 st.markdown("---")
 st.caption("Proyecto Integrador - Computación Física e Internet de las Cosas | Diseño Interactivo")
-st.caption(f"Hora actual del servidor: {pd.Timestamp.now(tz='America/Bogota').strftime('%Y-%m-%d %H:%M:%S %Z')}")
+st.caption(f"Hora actual del servidor (aproximada): {pd.Timestamp.now(tz='America/Bogota').strftime('%Y-%m-%d %H:%M:%S %Z')}")
